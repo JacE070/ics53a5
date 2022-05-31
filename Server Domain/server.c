@@ -106,29 +106,87 @@ int main(int argc, char *argv[])
         }
         else if(strcmp(args[0], "upload") == 0){
             // Msg format: #1, "upload" (received); #2, file name; #3, [FILE]
-            int received_size = recv(conn_fd, buffer, 1024, 0);
-            char fname[1024];
+            int file_size;
+            recv(conn_fd, buffer, 1024, 0);
+            char fname[128];
             strncpy(fname, buffer, received_size + 1);
+            printf("File [%s] is uploaded\n", fname);
+            // recv(conn_fd, buffer, 1024, 0);
+            FILE *fptr;
+            int chunk_size = 1000;
+            char file_chunk[chunk_size];
             
+            char destination_path[128];
+            strcpy(destination_path, "Remote Directory/");
+            strcat(destination_path, fname);
+            // Opening a new file in write-binary mode to write the received file bytes into the disk using fptr.
+            fptr = fopen(destination_path,"wb");
+
+            // Keep receiving bytes until we receive the whole file.
+            while (1){
+                bzero(file_chunk, chunk_size);
+                // Receiving bytes from the socket.
+                file_size = recv(conn_fd, file_chunk, chunk_size, 0);
+                printf("Client: received %i bytes from server.\n", received_size);
+
+                // The server has closed the connection.
+                // Note: the server will only close the connection when the application terminates.
+                if (file_size == 0){
+                    // close(conn_fd);
+                    fclose(fptr);
+                    break;
+                }
+                // Writing the received bytes into disk.
+                fwrite(&file_chunk, sizeof(char), file_size, fptr);
+            }
             
         }
         else if(strcmp(args[0], "download") == 0){
             // Msg format: #1, "download" (received); #2, file name
             // Existence of file was checked in client server
-            int received_size = recv(conn_fd, buffer, 1024, 0);
-            char fname[1024];
+            recv(conn_fd, buffer, 1024, 0);
+            char fname[128];
             strncpy(fname, buffer, received_size + 1);
+            FILE *fptr;
+            int chunk_size = 1000;
+            char file_chunk[chunk_size];
             
+            char source_path[128];
+            strcpy(source_path, "Remote Directory/");
+            strcat(source_path, fname);
+            fptr = fopen(source_path,"rb");  // Open a file in read-binary mode.
+            fseek(fptr, 0L, SEEK_END);  // Sets the pointer at the end of the file.
+            int file_size = ftell(fptr);  // Get file size.
+            // printf("Server: file size = %i bytes\n", file_size);
+            fseek(fptr, 0L, SEEK_SET);  // Sets the pointer back to the beginning of the file.
+            int total_bytes = 0;  // Keep track of how many bytes we read so far.
+            int current_chunk_size;  // Keep track of how many bytes we were able to read from file (helpful for the last chunk).
+            ssize_t sent_bytes;
+            while (total_bytes < file_size){
+                // Clean the memory of previous bytes.
+                bzero(file_chunk, chunk_size);
+                // Read file bytes from file.
+                current_chunk_size = fread(&file_chunk, sizeof(char), chunk_size, fptr);
+                // Sending a chunk of file to the socket.
+                sent_bytes = send(conn_fd, &file_chunk, current_chunk_size, 0);
+                // Keep track of how many bytes we read/sent so far.
+                total_bytes = total_bytes + sent_bytes;
+                printf("Server: sent to client %i bytes. Total bytes sent so far = %i.\n", sent_bytes, total_bytes);
+            }
             
         }
         else if(strcmp(args[0], "delete") == 0){
-            // Msg format: #1, "delete" (received); #2, [File]
+            // Msg format: #1, "delete" (received); #2, file name
             // Existence of file was checked in client server
-            int received_size = recv(conn_fd, buffer, 1024, 0);
-            char fname[1024];
+            recv(conn_fd, buffer, 1024, 0);
+            char fname[128];
             strncpy(fname, buffer, received_size + 1);
-            
-            
+            char delete_path[128];
+            strcpy(delete_path, "Remote Directory/");
+            strcat(delete_path, fname);
+            remove(delete_path);
+            // char msg[128];
+            // Should I send msg to indicate that the file has been removed?
         }
         else if(strcmp(args[0], "syncheck") == 0){
             
