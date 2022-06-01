@@ -106,10 +106,13 @@ int main(int argc, char *argv[])
         }
         else if(strcmp(args[0], "upload") == 0){
             // Msg format: #1, "upload" (received); #2, file name; #3, [FILE]
+            puts("UPLOAD");
             int file_size;
             recv(conn_fd, buffer, 1024, 0);
             char fname[128];
             strncpy(fname, buffer, received_size + 1);
+            puts(buffer);
+            puts(fname);
             printf("File [%s] is uploaded\n", fname);
             // recv(conn_fd, buffer, 1024, 0);
             FILE *fptr;

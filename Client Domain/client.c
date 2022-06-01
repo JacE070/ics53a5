@@ -84,7 +84,7 @@ int main(int argc, char * argv[])
                         fnamesptr ++;
                     }
                     fnamesptr ++;
-                    fnamesptr[strlen(fnameptr) - 1] = '\0';
+                    fnamesptr[strlen(fnamesptr) - 1] = '\0';
                     // Put Fnames in args1
                     parseFname(fnamesptr, args1, cache1);
                     
@@ -106,12 +106,50 @@ int main(int argc, char * argv[])
                         // 1. Download file from server first
                         // 2. Append content to file
                         // 3. Upload file to server
+                        // Download file
+                        
                         
                     }
                     
                 }
                 else if(strcmp(args[0], "upload") == 0){
-                    
+                    char fname[128];
+                    strcpy(fname, args[1]);
+                    fname[strlen(fname) - 1] = '\0'; // remove \n
+                    ssize_t sent_size = send(client_socket, "upload", strlen("upload"), 0);
+                    printf("Client uploads: %s\n", fname);
+                    sent_size = send(client_socket, fname, strlen(fname), 0);
+                    FILE *fptr;
+                    int chunk_size = 1000;
+                    char file_chunk[chunk_size];
+
+                    char source_path[128];
+                    strcpy(source_path, "Local Directory/");
+                    strcat(source_path, fname);
+                    // puts(source_path);
+                    if((fptr = fopen(source_path,"rb")) != NULL){
+                        fseek(fptr, 0L, SEEK_END);  // Sets the pointer at the end of the file.
+                        int file_size = ftell(fptr);  // Get file size.
+                        printf("%d\n", file_size);
+                        fseek(fptr, 0L, SEEK_SET);  // Sets the pointer back to the beginning of the file.
+                        int total_bytes = 0;  // Keep track of how many bytes we read so far.
+                        int current_chunk_size; 
+                        ssize_t sent_bytes;
+                        while (total_bytes < file_size){
+                            // Clean the memory of previous bytes.
+                            bzero(file_chunk, chunk_size);
+                            // Read file bytes from file.
+                            current_chunk_size = fread(&file_chunk, sizeof(char), chunk_size, fptr);
+                            // Sending a chunk of file to the socket.
+                            sent_bytes = send(client_socket, &file_chunk, current_chunk_size, 0);
+                            // Keep track of how many bytes we read/sent so far.
+                            total_bytes = total_bytes + sent_bytes;
+                            printf("Client: sent to client %i bytes. Total bytes sent so far = %i.\n", sent_bytes, total_bytes);
+                        }
+                    }
+                    else{
+                        printf("Failed to open [%s] in Local Directory\n", fname);
+                    }
                 }
                 else if(strcmp(args[0], "download") == 0){
                     
@@ -141,6 +179,7 @@ int main(int argc, char * argv[])
                 continue;
             }
         }
+        puts("Connection closed.");
     }
     else{
         puts("File not found.");
